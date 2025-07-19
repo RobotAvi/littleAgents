@@ -27,6 +27,8 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
           pip install -e .
+      - name: Run minimal test
+        run: python test_minimal.py
       - name: Wait for Ollama
         run: |
           for i in {1..60}; do
