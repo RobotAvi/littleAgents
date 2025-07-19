@@ -71,6 +71,40 @@ def check_status(request_id, status_url, max_wait_time=300):
     print(f"⏰ Превышено время ожидания ({max_wait_time}с)")
     return None
 
+def upload_image_to_temp_service(img_file):
+    """
+    Загружает изображение на временный сервис и возвращает URL
+    Для демонстрации используем base64 data URL
+    """
+    try:
+        import base64
+        
+        with open(img_file, "rb") as f:
+            img_data = f.read()
+        
+        # Кодируем изображение в base64
+        img_base64 = base64.b64encode(img_data).decode('utf-8')
+        
+        # Определяем MIME тип по расширению файла
+        ext = img_file.lower().split('.')[-1]
+        mime_type = {
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'gif': 'image/gif',
+            'webp': 'image/webp'
+        }.get(ext, 'image/png')
+        
+        # Создаем data URL
+        data_url = f"data:{mime_type};base64,{img_base64}"
+        
+        print(f"📤 Изображение закодировано в base64 data URL")
+        return data_url
+        
+    except Exception as e:
+        print(f"❌ Ошибка при загрузке изображения: {e}")
+        return None
+
 def generate_keyframe(prompt, idx):
     payload = {
         "prompt": prompt,
@@ -134,26 +168,30 @@ def generate_keyframe(prompt, idx):
 def generate_video_segment(img_file, prompt, idx):
     try:
         print(f"🚀 Отправка запроса на генерацию видео {idx+1}...")
-        with open(img_file, "rb") as f:
-            files = {"file": f}
-            data = {"prompt": prompt, "duration": 10}
-            r = requests.post(KL_URL, headers={"Authorization": f"Bearer {API_KEY}"}, data=data, files=files, timeout=30)
+        
+        # Загружаем изображение и получаем URL
+        img_url = upload_image_to_temp_service(img_file)
+        if not img_url:
+            print(f"❌ Не удалось загрузить изображение {img_file}")
+            return None
+        
+        payload = {
+            "prompt": prompt,
+            "duration": 10,
+            "input_image_urls": [img_url]
+        }
+        
+        r = requests.post(KL_URL, headers=HEADERS, json=payload, timeout=30)
         
         if r.status_code == 502:
             print(f"⚠️  Сервер временно недоступен (502). Повторная попытка через 10 секунд...")
             time.sleep(10)
-            with open(img_file, "rb") as f:
-                files = {"file": f}
-                data = {"prompt": prompt, "duration": 10}
-                r = requests.post(KL_URL, headers={"Authorization": f"Bearer {API_KEY}"}, data=data, files=files, timeout=30)
+            r = requests.post(KL_URL, headers=HEADERS, json=payload, timeout=30)
         
         if r.status_code == 503:
             print(f"⚠️  Сервис временно недоступен (503). Повторная попытка через 15 секунд...")
             time.sleep(15)
-            with open(img_file, "rb") as f:
-                files = {"file": f}
-                data = {"prompt": prompt, "duration": 10}
-                r = requests.post(KL_URL, headers={"Authorization": f"Bearer {API_KEY}"}, data=data, files=files, timeout=30)
+            r = requests.post(KL_URL, headers=HEADERS, json=payload, timeout=30)
         
         r.raise_for_status()
         response_data = r.json()
