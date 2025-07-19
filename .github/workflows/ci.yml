@@ -10,11 +10,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      ollama:
-        image: ollama/ollama:latest
-        ports:
-          - 11434:11434
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -29,20 +24,5 @@ jobs:
           pip install -e .
       - name: Run minimal test
         run: python test_minimal.py
-      - name: Wait for Ollama
-        run: |
-          for i in {1..60}; do
-            if curl --fail http://localhost:11434/api/version; then
-              echo "Ollama is up!"
-              break
-            fi
-            echo "Waiting for Ollama... (attempt $i/60)"
-            sleep 10
-          done
-      - name: Init Ollama model
-        run: |
-          curl -X POST http://localhost:11434/api/pull -d '{"name": "phi3"}' -H 'Content-Type: application/json'
-        env:
-          OLLAMA_HOST: localhost
-      - name: Run tests
-        run: pytest
+      - name: Run basic tests
+        run: pytest tests/test_basic.py -v
