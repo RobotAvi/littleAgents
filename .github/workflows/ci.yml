@@ -1,5 +1,6 @@
 name: CI
 
+# Updated at 2025-07-19T01:10:00Z - Fixed Ollama healthcheck
 on:
   push:
     branches: [ main ]
@@ -15,10 +16,10 @@ jobs:
         ports:
           - 11434:11434
         options: >-
-          --health-cmd "curl --fail http://localhost:11434/api/tags || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd "curl --fail http://localhost:11434/api/version || exit 1"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -32,13 +33,18 @@ jobs:
           pip install pytest
       - name: Wait for Ollama
         run: |
-          for i in {1..30}; do
-            if curl --fail http://localhost:11434/api/tags; then
+          for i in {1..60}; do
+            if curl --fail http://localhost:11434/api/version; then
               echo "Ollama is up!"
               break
             fi
-            echo "Waiting for Ollama..."
-            sleep 5
+            echo "Waiting for Ollama... (attempt $i/60)"
+            sleep 10
           done
+      - name: Init Ollama model
+        run: |
+          curl -X POST http://localhost:11434/api/pull -d '{"name": "phi3"}' -H 'Content-Type: application/json'
+        env:
+          OLLAMA_HOST: localhost
       - name: Run tests
         run: pytest
