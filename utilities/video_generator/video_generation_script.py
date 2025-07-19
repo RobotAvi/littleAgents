@@ -4,7 +4,7 @@ import time
 
 # Импортируем настройки из отдельного файла
 try:
-    from config import API_KEY, MJ_URL, KL_URL, HEADERS
+    from config import API_KEY, MJ_URL, KL_URL, MJ_STATUS_URL, KL_STATUS_URL, HEADERS
 except ImportError:
     print("Ошибка: Файл config.py не найден!")
     print("Скопируйте config.example.py в config.py и вставьте ваш API ключ")
@@ -24,6 +24,53 @@ video_prompts = [
     "cinematic, pastel color palette, retro film grain, consistent wide-angle lens 24mm, soft golden northern light of Saint Petersburg, bright and cheerful, surreal dynamic, sharp focus, lively expressive faces, no temporal artifacts, characters and cat must remain identical in every frame: cake arcs through golden kitchen light, powdered sugar sparkles, spoons and flour swirl in slow-mo, boy glides across linoleum, cat weaves between feet, red ball rolls toward guitar; all backgrounds, outfits, and facial features remain constant, window view of brick yards and cathedral silhouette present."
 ]
 
+def check_status(request_id, status_url, max_wait_time=300):
+    """
+    Проверяет статус генерации и ждет завершения
+    """
+    print(f"⏳ Ожидание завершения генерации (request_id: {request_id})...")
+    
+    start_time = time.time()
+    while time.time() - start_time < max_wait_time:
+        try:
+            payload = {"request_id": request_id}
+            r = requests.post(status_url, headers=HEADERS, json=payload, timeout=30)
+            
+            if r.status_code == 502:
+                print(f"⚠️  Сервер временно недоступен (502). Повторная попытка через 10 секунд...")
+                time.sleep(10)
+                continue
+                
+            if r.status_code == 503:
+                print(f"⚠️  Сервис временно недоступен (503). Повторная попытка через 15 секунд...")
+                time.sleep(15)
+                continue
+                
+            r.raise_for_status()
+            response_data = r.json()
+            
+            print(f"📊 Статус: {response_data.get('status', 'unknown')}")
+            
+            if response_data.get('status') == 'completed':
+                print(f"✅ Генерация завершена!")
+                return response_data
+            elif response_data.get('status') == 'failed':
+                print(f"❌ Генерация не удалась: {response_data.get('error', 'Unknown error')}")
+                return None
+            elif response_data.get('status') == 'processing':
+                print(f"🔄 Обработка... (прошло {int(time.time() - start_time)}с)")
+                time.sleep(10)  # Ждем 10 секунд перед следующей проверкой
+            else:
+                print(f"❓ Неизвестный статус: {response_data}")
+                time.sleep(10)
+                
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️  Ошибка при проверке статуса: {e}")
+            time.sleep(10)
+    
+    print(f"⏰ Превышено время ожидания ({max_wait_time}с)")
+    return None
+
 def generate_keyframe(prompt, idx):
     payload = {
         "prompt": prompt,
@@ -32,6 +79,7 @@ def generate_keyframe(prompt, idx):
     }
     
     try:
+        print(f"🚀 Отправка запроса на генерацию кадра {idx+1}...")
         r = requests.post(MJ_URL, headers=HEADERS, json=payload, timeout=30)
         
         if r.status_code == 502:
@@ -45,19 +93,35 @@ def generate_keyframe(prompt, idx):
             r = requests.post(MJ_URL, headers=HEADERS, json=payload, timeout=30)
         
         r.raise_for_status()
-        
-        # Парсим ответ в зависимости от формата API
         response_data = r.json()
-        if "data" in response_data and len(response_data["data"]) > 0:
-            url = response_data["data"][0]["url"]
-        elif "url" in response_data:
-            url = response_data["url"]
-        else:
+        
+        # Проверяем, что получили request_id
+        if "request_id" not in response_data:
             print(f"❌ Неожиданный формат ответа API: {response_data}")
             return None
+        
+        request_id = response_data["request_id"]
+        print(f"📋 Получен request_id: {request_id}")
+        
+        # Ждем завершения генерации
+        result = check_status(request_id, MJ_STATUS_URL)
+        if not result:
+            print(f"❌ Не удалось дождаться завершения генерации кадра {idx+1}")
+            return None
+        
+        # Получаем URL изображения
+        if "data" in result and len(result["data"]) > 0:
+            url = result["data"][0]["url"]
+        elif "url" in result:
+            url = result["url"]
+        else:
+            print(f"❌ Неожиданный формат результата: {result}")
+            return None
             
-        fname = f"frame_{idx+1:02d}.png"
+        # Скачиваем изображение
+        print(f"📥 Скачивание изображения...")
         img_data = requests.get(url).content
+        fname = f"frame_{idx+1:02d}.png"
         with open(fname, "wb") as f:
             f.write(img_data)
         print(f"✅ Сохранен {fname}")
@@ -69,6 +133,7 @@ def generate_keyframe(prompt, idx):
 
 def generate_video_segment(img_file, prompt, idx):
     try:
+        print(f"🚀 Отправка запроса на генерацию видео {idx+1}...")
         with open(img_file, "rb") as f:
             files = {"file": f}
             data = {"prompt": prompt, "duration": 10}
@@ -91,19 +156,35 @@ def generate_video_segment(img_file, prompt, idx):
                 r = requests.post(KL_URL, headers={"Authorization": f"Bearer {API_KEY}"}, data=data, files=files, timeout=30)
         
         r.raise_for_status()
-        
-        # Парсим ответ в зависимости от формата API
         response_data = r.json()
-        if "url" in response_data:
-            url = response_data["url"]
-        elif "data" in response_data and len(response_data["data"]) > 0:
-            url = response_data["data"][0]["url"]
-        else:
+        
+        # Проверяем, что получили request_id
+        if "request_id" not in response_data:
             print(f"❌ Неожиданный формат ответа API: {response_data}")
             return None
+        
+        request_id = response_data["request_id"]
+        print(f"📋 Получен request_id: {request_id}")
+        
+        # Ждем завершения генерации
+        result = check_status(request_id, KL_STATUS_URL)
+        if not result:
+            print(f"❌ Не удалось дождаться завершения генерации видео {idx+1}")
+            return None
+        
+        # Получаем URL видео
+        if "data" in result and len(result["data"]) > 0:
+            url = result["data"][0]["url"]
+        elif "url" in result:
+            url = result["url"]
+        else:
+            print(f"❌ Неожиданный формат результата: {result}")
+            return None
             
-        vname = f"segment_{idx+1:02d}.mp4"
+        # Скачиваем видео
+        print(f"📥 Скачивание видео...")
         vid_data = requests.get(url).content
+        vname = f"segment_{idx+1:02d}.mp4"
         with open(vname, "wb") as f:
             f.write(vid_data)
         print(f"✅ Сохранен {vname}")
