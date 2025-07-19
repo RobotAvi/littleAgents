@@ -52,7 +52,7 @@ def check_status(request_id, max_wait_time=300):
             
             print(f"📊 Статус: {response_data.get('status', 'unknown')}")
             
-            if response_data.get('status') == 'done':
+            if response_data.get('status') == 'success':
                 print(f"✅ Генерация завершена!")
                 return response_data
             elif response_data.get('status') == 'failed':
@@ -144,11 +144,11 @@ def generate_keyframe(prompt, idx):
             print(f"❌ Не удалось дождаться завершения генерации кадра {idx+1}")
             return None
         
-        # Получаем URL изображения
-        if "data" in result and len(result["data"]) > 0:
-            url = result["data"][0]["url"]
-        elif "url" in result:
-            url = result["url"]
+        # Получаем URL изображения из нового формата ответа
+        if "result" in result and len(result["result"]) > 0:
+            url = result["result"][0]  # Берем первое изображение
+        elif "full_response" in result and len(result["full_response"]) > 0:
+            url = result["full_response"][0]["url"]
         else:
             print(f"❌ Неожиданный формат результата: {result}")
             return None
@@ -170,18 +170,23 @@ def generate_video_segment(img_file, prompt, idx):
     try:
         print(f"🚀 Отправка запроса на генерацию видео {idx+1}...")
         
-        # Используем реальные URL изображений с Yandex Cloud Storage
-        # В реальном проекте эти URL должны приходить из предыдущего этапа генерации
-        image_urls = [
-            "https://gen-api.storage.yandexcloud.net/input_files/1752891001_687afe790d46c.png",
-            "https://gen-api.storage.yandexcloud.net/input_files/1752891002_687afe7a59119.png",
-            "https://gen-api.storage.yandexcloud.net/input_files/1752891003_687afe7b824a3.png",
-            "https://gen-api.storage.yandexcloud.net/input_files/1752891004_687afe7ccc0fe.png"
+        # Используем локальные тестовые изображения
+        test_images = [
+            "test_frame_01.png",
+            "test_frame_02.png", 
+            "test_frame_03.png",
+            "test_frame_04.png"
         ]
         
-        # Используем изображение по индексу (или первое, если индекс больше количества URL)
-        img_url = image_urls[idx % len(image_urls)]
-        print(f"📸 Используем изображение: {img_url}")
+        # Используем тестовое изображение по индексу
+        test_img = test_images[idx % len(test_images)]
+        print(f"📸 Используем тестовое изображение: {test_img}")
+        
+        # Загружаем изображение и получаем URL
+        img_url = upload_image_to_temp_service(test_img)
+        if not img_url:
+            print(f"❌ Не удалось загрузить изображение {test_img}")
+            return None
         
         payload = {
             "prompt": prompt,
