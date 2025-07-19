@@ -1,6 +1,7 @@
 import os
 import requests
 import time
+import base64
 
 # Импортируем настройки из отдельного файла
 try:
@@ -74,36 +75,22 @@ def check_status(request_id, max_wait_time=300):
 
 def upload_image_to_temp_service(img_file):
     """
-    Загружает изображение на временный сервис и возвращает URL
-    Для демонстрации используем base64 data URL
+    Возвращает URL изображения для тестирования
+    В реальном проекте здесь должна быть загрузка на сервис
     """
-    try:
-        import base64
-        
-        with open(img_file, "rb") as f:
-            img_data = f.read()
-        
-        # Кодируем изображение в base64
-        img_base64 = base64.b64encode(img_data).decode('utf-8')
-        
-        # Определяем MIME тип по расширению файла
-        ext = img_file.lower().split('.')[-1]
-        mime_type = {
-            'png': 'image/png',
-            'jpg': 'image/jpeg',
-            'jpeg': 'image/jpeg',
-            'gif': 'image/gif',
-            'webp': 'image/webp'
-        }.get(ext, 'image/png')
-        
-        # Создаем data URL
-        data_url = f"data:{mime_type};base64,{img_base64}"
-        
-        print(f"📤 Изображение закодировано в base64 data URL")
-        return data_url
-        
-    except Exception as e:
-        print(f"❌ Ошибка при загрузке изображения: {e}")
+    # Используем готовые URL для тестирования
+    test_urls = {
+        "test_frame_01.png": "https://gen-api.storage.yandexcloud.net/input_files/1752894423_687b0bd7da4e8.png",
+        "test_frame_02.png": "https://gen-api.storage.yandexcloud.net/input_files/1752894425_687b0bd935749.png",
+        "test_frame_03.png": "https://gen-api.storage.yandexcloud.net/input_files/1752894725_687b0d050e00a.png",
+        "test_frame_04.png": "https://gen-api.storage.yandexcloud.net/input_files/1752894726_687b0d065ebc5.png"
+    }
+    
+    if img_file in test_urls:
+        print(f"📤 Используем готовый URL для {img_file}")
+        return test_urls[img_file]
+    else:
+        print(f"❌ Неизвестный файл: {img_file}")
         return None
 
 def generate_keyframe(prompt, idx):
@@ -190,8 +177,8 @@ def generate_video_segment(img_file, prompt, idx):
         
         payload = {
             "prompt": prompt,
-            "duration": 10,
-            "input_image_urls": [img_url]
+            "model": "standard",
+            "image_url": img_url
         }
         
         r = requests.post(KL_URL, headers=HEADERS, json=payload, timeout=30)
