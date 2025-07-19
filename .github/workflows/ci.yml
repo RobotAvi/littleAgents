@@ -1,6 +1,6 @@
 name: CI
 
-# Updated at 2025-07-19T01:17:00Z - Simplified healthcheck to port check
+# Updated at 2025-07-19T01:25:00Z - Removed healthcheck, using custom wait script
 on:
   push:
     branches: [ main ]
@@ -15,11 +15,6 @@ jobs:
         image: ollama/ollama:latest
         ports:
           - 11434:11434
-        options: >-
-          --health-cmd "nc -z localhost 11434 || exit 1"
-          --health-interval 30s
-          --health-timeout 10s
-          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
