@@ -1,6 +1,6 @@
 name: CI
 
-# Updated at 2025-07-19T01:25:00Z - Removed healthcheck, using custom wait script
+# Updated at 2025-07-19T01:27:00Z - Added project installation for tests
 on:
   push:
     branches: [ main ]
@@ -26,6 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
+          pip install -e .
       - name: Wait for Ollama
         run: |
           for i in {1..60}; do
