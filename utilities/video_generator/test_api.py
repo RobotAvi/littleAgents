@@ -12,7 +12,7 @@ except ImportError:
 # Тестируем различные эндпоинты
 endpoints = [
     "https://api.gen-api.ru/api/v1/networks/midjourney",
-    "https://api.gen-api.ru/api/v1/networks/kling",
+    "https://api.gen-api.ru/api/v1/networks/kling-elements",
     "https://gen-api.ru/api/midjourney/generate",
     "https://gen-api.ru/api/kling-elements/generate"
 ]
