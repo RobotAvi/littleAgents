@@ -1,12 +1,13 @@
 import requests
 import json
 
-# ====== Настройки API ======
-API_KEY = "sk-FqTcgsrIEEKcz6g8z9mkal0I6XeW7hWly8V8GuUACi5UGcdnLaoFIfz7P3Yd"
-HEADERS = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
-}
+# Импортируем настройки из отдельного файла
+try:
+    from config import API_KEY, HEADERS
+except ImportError:
+    print("Ошибка: Файл config.py не найден!")
+    print("Скопируйте config.example.py в config.py и вставьте ваш API ключ")
+    exit(1)
 
 # Тестируем различные эндпоинты
 endpoints = [
