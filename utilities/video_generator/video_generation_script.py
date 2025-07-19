@@ -4,7 +4,7 @@ import time
 
 # Импортируем настройки из отдельного файла
 try:
-    from config import API_KEY, MJ_URL, KL_URL, MJ_STATUS_URL, KL_STATUS_URL, HEADERS
+    from config import API_KEY, MJ_URL, KL_URL, RESULT_BASE_URL, HEADERS
 except ImportError:
     print("Ошибка: Файл config.py не найден!")
     print("Скопируйте config.example.py в config.py и вставьте ваш API ключ")
@@ -24,17 +24,18 @@ video_prompts = [
     "cinematic, pastel color palette, retro film grain, consistent wide-angle lens 24mm, soft golden northern light of Saint Petersburg, bright and cheerful, surreal dynamic, sharp focus, lively expressive faces, no temporal artifacts, characters and cat must remain identical in every frame: cake arcs through golden kitchen light, powdered sugar sparkles, spoons and flour swirl in slow-mo, boy glides across linoleum, cat weaves between feet, red ball rolls toward guitar; all backgrounds, outfits, and facial features remain constant, window view of brick yards and cathedral silhouette present."
 ]
 
-def check_status(request_id, status_url, max_wait_time=300):
+def check_status(request_id, max_wait_time=300):
     """
-    Проверяет статус генерации и ждет завершения
+    Проверяет статус генерации и ждет завершения по request_id
     """
     print(f"⏳ Ожидание завершения генерации (request_id: {request_id})...")
     
     start_time = time.time()
     while time.time() - start_time < max_wait_time:
         try:
-            payload = {"request_id": request_id}
-            r = requests.post(status_url, headers=HEADERS, json=payload, timeout=30)
+            # Используем правильный эндпоинт для проверки статуса
+            result_url = f"{RESULT_BASE_URL}/{request_id}"
+            r = requests.get(result_url, headers=HEADERS, timeout=30)
             
             if r.status_code == 502:
                 print(f"⚠️  Сервер временно недоступен (502). Повторная попытка через 10 секунд...")
@@ -51,7 +52,7 @@ def check_status(request_id, status_url, max_wait_time=300):
             
             print(f"📊 Статус: {response_data.get('status', 'unknown')}")
             
-            if response_data.get('status') == 'completed':
+            if response_data.get('status') == 'done':
                 print(f"✅ Генерация завершена!")
                 return response_data
             elif response_data.get('status') == 'failed':
@@ -59,14 +60,14 @@ def check_status(request_id, status_url, max_wait_time=300):
                 return None
             elif response_data.get('status') == 'processing':
                 print(f"🔄 Обработка... (прошло {int(time.time() - start_time)}с)")
-                time.sleep(10)  # Ждем 10 секунд перед следующей проверкой
+                time.sleep(5)  # Ждем 5 секунд перед следующей проверкой
             else:
                 print(f"❓ Неизвестный статус: {response_data}")
-                time.sleep(10)
+                time.sleep(5)
                 
         except requests.exceptions.RequestException as e:
             print(f"⚠️  Ошибка при проверке статуса: {e}")
-            time.sleep(10)
+            time.sleep(5)
     
     print(f"⏰ Превышено время ожидания ({max_wait_time}с)")
     return None
@@ -138,7 +139,7 @@ def generate_keyframe(prompt, idx):
         print(f"📋 Получен request_id: {request_id}")
         
         # Ждем завершения генерации
-        result = check_status(request_id, MJ_STATUS_URL)
+        result = check_status(request_id)
         if not result:
             print(f"❌ Не удалось дождаться завершения генерации кадра {idx+1}")
             return None
@@ -212,7 +213,7 @@ def generate_video_segment(img_file, prompt, idx):
         print(f"📋 Получен request_id: {request_id}")
         
         # Ждем завершения генерации
-        result = check_status(request_id, KL_STATUS_URL)
+        result = check_status(request_id)
         if not result:
             print(f"❌ Не удалось дождаться завершения генерации видео {idx+1}")
             return None
