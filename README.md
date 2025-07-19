@@ -134,4 +134,4 @@ ai-assistant-utilities/
 
 ## 📄 Лицензия
 
-MIT License - подробности в файле LICENSE.
+MIT License - подробности в файле LICENSE.# Test commit to trigger CI
