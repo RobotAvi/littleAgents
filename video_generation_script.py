@@ -2,14 +2,13 @@ import os
 import requests
 import time
 
-# ====== Настройки API ======
-API_KEY = "sk-FqTcgsrIEEKcz6g8z9mkal0I6XeW7hWly8V8GuUACi5UGcdnLaoFIfz7P3Yd"
-MJ_URL = "https://gen-api.ru/api/midjourney/generate"
-KL_URL = "https://gen-api.ru/api/kling-elements/generate"
-HEADERS = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
-}
+# Импортируем настройки из отдельного файла
+try:
+    from config import API_KEY, MJ_URL, KL_URL, HEADERS
+except ImportError:
+    print("Ошибка: Файл config.py не найден!")
+    print("Скопируйте config.example.py в config.py и вставьте ваш API ключ")
+    exit(1)
 
 # ====== Prompts для первых 20 секунд ======
 
