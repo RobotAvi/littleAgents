@@ -26,52 +26,133 @@ video_prompts = [
 
 def generate_keyframe(prompt, idx):
     payload = {
-        "model": "midjourney",
         "prompt": prompt,
         "width": 1024,
         "height": 1024
     }
-    r = requests.post(MJ_URL, headers=HEADERS, json=payload)
-    r.raise_for_status()
-    url = r.json()["data"][0]["url"]
-    fname = f"frame_{idx+1:02d}.png"
-    img_data = requests.get(url).content
-    with open(fname, "wb") as f:
-        f.write(img_data)
-    print(f"Saved {fname}")
-    return fname
+    
+    try:
+        r = requests.post(MJ_URL, headers=HEADERS, json=payload, timeout=30)
+        
+        if r.status_code == 502:
+            print(f"⚠️  Сервер временно недоступен (502). Повторная попытка через 10 секунд...")
+            time.sleep(10)
+            r = requests.post(MJ_URL, headers=HEADERS, json=payload, timeout=30)
+        
+        if r.status_code == 503:
+            print(f"⚠️  Сервис временно недоступен (503). Повторная попытка через 15 секунд...")
+            time.sleep(15)
+            r = requests.post(MJ_URL, headers=HEADERS, json=payload, timeout=30)
+        
+        r.raise_for_status()
+        
+        # Парсим ответ в зависимости от формата API
+        response_data = r.json()
+        if "data" in response_data and len(response_data["data"]) > 0:
+            url = response_data["data"][0]["url"]
+        elif "url" in response_data:
+            url = response_data["url"]
+        else:
+            print(f"❌ Неожиданный формат ответа API: {response_data}")
+            return None
+            
+        fname = f"frame_{idx+1:02d}.png"
+        img_data = requests.get(url).content
+        with open(fname, "wb") as f:
+            f.write(img_data)
+        print(f"✅ Сохранен {fname}")
+        return fname
+        
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Ошибка при генерации кадра {idx+1}: {e}")
+        return None
 
 def generate_video_segment(img_file, prompt, idx):
-    with open(img_file, "rb") as f:
-        files = {"file": f}
-        data = {"model": "kling-elements", "prompt": prompt, "duration": 10}
-        r = requests.post(KL_URL, headers={"Authorization": f"Bearer {API_KEY}"}, data=data, files=files)
-    r.raise_for_status()
-    url = r.json()["url"]
-    vname = f"segment_{idx+1:02d}.mp4"
-    vid_data = requests.get(url).content
-    with open(vname, "wb") as f:
-        f.write(vid_data)
-    print(f"Saved {vname}")
-    return vname
+    try:
+        with open(img_file, "rb") as f:
+            files = {"file": f}
+            data = {"prompt": prompt, "duration": 10}
+            r = requests.post(KL_URL, headers={"Authorization": f"Bearer {API_KEY}"}, data=data, files=files, timeout=30)
+        
+        if r.status_code == 502:
+            print(f"⚠️  Сервер временно недоступен (502). Повторная попытка через 10 секунд...")
+            time.sleep(10)
+            with open(img_file, "rb") as f:
+                files = {"file": f}
+                data = {"prompt": prompt, "duration": 10}
+                r = requests.post(KL_URL, headers={"Authorization": f"Bearer {API_KEY}"}, data=data, files=files, timeout=30)
+        
+        if r.status_code == 503:
+            print(f"⚠️  Сервис временно недоступен (503). Повторная попытка через 15 секунд...")
+            time.sleep(15)
+            with open(img_file, "rb") as f:
+                files = {"file": f}
+                data = {"prompt": prompt, "duration": 10}
+                r = requests.post(KL_URL, headers={"Authorization": f"Bearer {API_KEY}"}, data=data, files=files, timeout=30)
+        
+        r.raise_for_status()
+        
+        # Парсим ответ в зависимости от формата API
+        response_data = r.json()
+        if "url" in response_data:
+            url = response_data["url"]
+        elif "data" in response_data and len(response_data["data"]) > 0:
+            url = response_data["data"][0]["url"]
+        else:
+            print(f"❌ Неожиданный формат ответа API: {response_data}")
+            return None
+            
+        vname = f"segment_{idx+1:02d}.mp4"
+        vid_data = requests.get(url).content
+        with open(vname, "wb") as f:
+            f.write(vid_data)
+        print(f"✅ Сохранен {vname}")
+        return vname
+        
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Ошибка при генерации видео {idx+1}: {e}")
+        return None
 
 def main():
+    print("🚀 Запуск генерации видео с обновленными API эндпоинтами...")
+    print(f"📡 Midjourney API: {MJ_URL}")
+    print(f"📡 Kling API: {KL_URL}")
+    print("=" * 50)
+    
     image_files = []
     video_files = []
 
     # 1. Генерация первых двух ключевых кадров
+    print("\n🎨 Генерация ключевых кадров...")
     for i, prompt in enumerate(keyframe_prompts):
+        print(f"\n📸 Генерация кадра {i+1}/2...")
         fname = generate_keyframe(prompt, i)
-        image_files.append(fname)
+        if fname:
+            image_files.append(fname)
+        else:
+            print(f"❌ Не удалось сгенерировать кадр {i+1}")
         time.sleep(2)  # задержка для соблюдения rate limit
 
     # 2. Генерация одного видеофрагмента для первых 20 сек
-    video_files.append(
-        generate_video_segment(image_files[0], video_prompts[0], 0)
-    )
+    if image_files:
+        print(f"\n🎬 Генерация видео из кадра {image_files[0]}...")
+        video_file = generate_video_segment(image_files[0], video_prompts[0], 0)
+        if video_file:
+            video_files.append(video_file)
+        else:
+            print("❌ Не удалось сгенерировать видео")
+    else:
+        print("❌ Нет изображений для генерации видео")
 
-    print("Сгенерированные кадры:", image_files)
-    print("Сгенерированные видео:", video_files)
+    print("\n" + "=" * 50)
+    print("📊 Результаты:")
+    print(f"✅ Сгенерированные кадры: {len(image_files)}")
+    print(f"✅ Сгенерированные видео: {len(video_files)}")
+    
+    if image_files:
+        print(f"📁 Кадры: {image_files}")
+    if video_files:
+        print(f"📁 Видео: {video_files}")
 
 if __name__ == "__main__":
     main()

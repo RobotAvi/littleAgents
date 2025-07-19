@@ -11,13 +11,10 @@ except ImportError:
 
 # Тестируем различные эндпоинты
 endpoints = [
+    "https://api.gen-api.ru/api/v1/networks/midjourney",
+    "https://api.gen-api.ru/api/v1/networks/kling",
     "https://gen-api.ru/api/midjourney/generate",
-    "https://gen-api.ru/api/kling-elements/generate",
-    "https://gen-api.ru/api/v1/generate",
-    "https://gen-api.ru/api/v2/generate",
-    "https://gen-api.ru/api/generate",
-    "https://gen-api.ru/api/midjourney",
-    "https://gen-api.ru/api/kling-elements"
+    "https://gen-api.ru/api/kling-elements/generate"
 ]
 
 def test_endpoint(url):
@@ -30,11 +27,13 @@ def test_endpoint(url):
             print(f"Ответ: {r.text[:200]}...")
         
         # Затем проверим POST запрос
-        payload = {"model": "midjourney", "prompt": "test", "width": 1024, "height": 1024}
+        payload = {"prompt": "test", "width": 1024, "height": 1024}
         r = requests.post(url, headers=HEADERS, json=payload)
         print(f"POST {url}: {r.status_code}")
-        if r.status_code != 404:
+        if r.status_code not in [404, 502, 503]:
             print(f"Ответ: {r.text[:200]}...")
+        elif r.status_code in [502, 503]:
+            print(f"⚠️  Сервис временно недоступен ({r.status_code})")
             
     except Exception as e:
         print(f"Ошибка: {e}")
