@@ -20,6 +20,61 @@ def main():
     st.markdown("*Набор умных утилит для автоматизации административных и управленческих задач*")
     st.divider()
     
+    st.markdown(
+        """
+        <style>
+        /* Современный SaaS стиль */
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            background: #F7F9FB;
+        }
+        .stButton > button {
+            background: linear-gradient(90deg, #4F8BF9 0%, #6DD5FA 100%);
+            color: white;
+            border-radius: 8px;
+            font-weight: 600;
+            padding: 0.5rem 1.5rem;
+            box-shadow: 0 2px 8px rgba(79,139,249,0.08);
+            border: none;
+        }
+        .stButton > button:hover {
+            background: linear-gradient(90deg, #6DD5FA 0%, #4F8BF9 100%);
+            color: #fff;
+        }
+        .utility-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(79,139,249,0.07);
+            padding: 1.5rem 2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #E3E8EF;
+        }
+        .utility-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #4F8BF9;
+        }
+        .utility-desc {
+            color: #22223B;
+            font-size: 1.05rem;
+            margin-bottom: 0.5rem;
+        }
+        .utility-status {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            margin-top: 2rem;
+            font-size: 0.95rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    
     # Боковая панель с навигацией
     with st.sidebar:
         st.header("🚀 Навигация")
@@ -135,23 +190,26 @@ def main():
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.header(selected_utility)
-            st.markdown(f"**Описание:** {utility_info['description']}")
-            
-            # Статус утилиты
-            status_color = "🟢" if utility_info['status'] == 'ready' else "🟡"
-            st.markdown(f"**Статус:** {status_color} {utility_info['status'].title()}")
-            
-            # Кнопка запуска
+            st.markdown(f"""
+            <div class="utility-card">
+                <div class="utility-title">{selected_utility.split()[0]} {selected_utility}</div>
+                <div class="utility-desc">{utility_info['description']}</div>
+                <div class="utility-status">Статус: {status_icon} <b>{utility_info['status'].title()}</b></div>
+            </div>
+            """.format(
+                icon=selected_utility.split()[0],
+                name=selected_utility,
+                desc=utility_info['description'],
+                status_icon="🟢" if utility_info['status'] == 'ready' else "🟡",
+                status=utility_info['status'].title()
+            ), unsafe_allow_html=True)
             if st.button(f"🚀 Запустить {selected_utility}", type="primary"):
                 utility_path = utility_info['path']
                 if os.path.exists(utility_path):
                     st.success(f"Запуск {selected_utility}...")
                     st.markdown(f"**Команда для запуска:**")
                     st.code(f"cd {utility_path} && streamlit run app.py")
-                    
                     try:
-                        # Попытка запуска в новой вкладке браузера
                         subprocess.Popen([
                             sys.executable, "-m", "streamlit", "run", 
                             os.path.join(utility_path, "app.py")
@@ -226,12 +284,15 @@ def main():
     
     # Футер
     st.divider()
-    st.markdown("""
-    <div style='text-align: center; color: #666;'>
-        <p>🤖 AI Assistant Utilities Suite | Создано для автоматизации рабочих процессов</p>
-        <p>📧 Поддержка: support@ai-utilities.com | 🌐 GitHub: github.com/ai-utilities</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="footer">
+            🤖 AI Assistant Utilities Suite | Создано для автоматизации рабочих процессов<br>
+            📧 Поддержка: support@ai-utilities.com &nbsp;|&nbsp; 🌐 GitHub: github.com/ai-utilities
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 if __name__ == "__main__":
     main()
